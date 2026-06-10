@@ -18,13 +18,16 @@ jobs:
           
       - name: Create Config
         run: |
-          echo "${{ github.event.inputs.server }}" > config
-          echo "${{ github.event.inputs.key }}" >> config
+          mkdir config
+          echo 'rendezvous_server = "${{ github.event.inputs.server }}"' > config\RustDesk2.toml
+          echo 'key = "${{ github.event.inputs.key }}"' >> config\RustDesk2.toml
+          echo 'custom-rendezvous-server = "${{ github.event.inputs.server }}"' >> config\RustDesk2.toml
           
-      - name: Build Support.exe
-        run: cmd /c "copy /b rustdesk.exe+config Support.exe"
+      - name: Pack with 7zip
+        run: |
+          7z a Support.zip rustdesk.exe .\config\RustDesk2.toml
           
       - uses: actions/upload-artifact@v4
         with:
-          name: Support.exe
-          path: Support.exe
+          name: Support-Paket
+          path: Support.zip
