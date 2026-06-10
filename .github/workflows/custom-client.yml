@@ -3,10 +3,10 @@ on:
   workflow_dispatch:
     inputs:
       server:
-        description: 'Rendezvous Server z.B. mein.server.de:21116'
+        description: 'mra.dyndd.de:21116'
         required: true
       key:
-        description: 'Public Key aus id_ed25519.pub'
+        description: 'dK+3RgiHEbpuZwa0s+PTS9GFINs7dFAfseEwBAPWG74='
         required: true
 jobs:
   build:
