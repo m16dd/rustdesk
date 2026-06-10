@@ -3,26 +3,29 @@ on:
   workflow_dispatch:
     inputs:
       server:
-        description: 'Rendezvous Server'
+        description: 'Rendezvous Server z.B. mein.server.de:21116'
         required: true
-        default: 'dein-server.de:21116'
       key:
-        description: 'Public Key'
+        description: 'Public Key aus id_ed25519.pub'
         required: true
 jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      
       - uses: dtolnay/rust-toolchain@stable
+      
       - name: Build RustDesk
         run: cargo build --release --features inline
         env:
           RENDEZVOUS_SERVER: ${{ github.event.inputs.server }}
           RS_PUB_KEY: ${{ github.event.inputs.key }}
-      - name: Rename and Upload
+          
+      - name: Rename
         run: Rename-Item target/release/rustdesk.exe Support.exe
-      - uses: actions/upload-artifact@v3
+        
+      - uses: actions/upload-artifact@v4
         with:
           name: Support.exe
           path: Support.exe
