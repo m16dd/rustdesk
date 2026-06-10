@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       server:
-        description: 'Rendezvous Server z.B. mein.server.de:21116'
+        description: 'Rendezvous Server z.B. mra.dyndd.de:21116'
         required: true
       key:
         description: 'Public Key aus id_ed25519.pub'
@@ -19,9 +19,7 @@ jobs:
       - name: Create Launcher
         run: |
           echo '@echo off' > Support.bat
-          echo 'set RENDEZVOUS_SERVER=${{ github.event.inputs.server }}' >> Support.bat
-          echo 'set RS_PUB_KEY=${{ github.event.inputs.key }}' >> Support.bat
-          echo 'start "" "%~dp0rustdesk.exe"' >> Support.bat
+          echo 'start "" "%~dp0rustdesk.exe" --server ${{ github.event.inputs.server }} --key ${{ github.event.inputs.key }} --custom-rendezvous-server ${{ github.event.inputs.server }}' >> Support.bat
           
       - name: Pack
         run: 7z a Support-Portable.zip rustdesk.exe Support.bat
