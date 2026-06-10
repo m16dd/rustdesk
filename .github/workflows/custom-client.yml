@@ -1,1 +1,34 @@
 
+name: Build Custom RustDesk Client
+on: 
+  workflow_dispatch:
+    inputs:
+      server:
+        description: 'Rendezvous Server z.B. mein.server.de:21116'
+        required: true
+      key:
+        description: 'Public Key aus id_ed25519.pub'
+        required: true
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Download RustDesk
+        run: |
+          curl -L -o rustdesk.exe https://github.com/rustdesk/rustdesk/releases/download/1.3.8/rustdesk-1.3.8-x86_64.exe
+          
+      - name: Create Config
+        run: |
+          echo "${{ github.event.inputs.server }}" > config
+          echo "${{ github.event.inputs.key }}" >> config
+          
+      - name: Build Support.exe
+        run: |
+          copy /b rustdesk.exe+config Support.exe
+          
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Support.exe
+          path: |
+            Support.exe
+            config
