@@ -1,4 +1,5 @@
 name: Build Custom RustDesk Client
+
 on: 
   workflow_dispatch:
     inputs:
@@ -8,6 +9,7 @@ on:
       key:
         description: 'Public Key aus id_ed25519.pub'
         required: true
+
 jobs:
   build:
     runs-on: windows-latest
@@ -17,15 +19,18 @@ jobs:
           curl -L -o rustdesk.exe https://github.com/rustdesk/rustdesk/releases/download/1.2.3/rustdesk-1.2.3-x86_64.exe
           
       - name: Create Config
+        shell: cmd
         run: |
-          echo 'rendezvous_server = "${{ github.event.inputs.server }}"' > config
-          echo 'key = "${{ github.event.inputs.key }}"' >> config
-          echo 'custom-rendezvous-server = "${{ github.event.inputs.server }}"' >> config
+          echo rendezvous_server = "${{ github.event.inputs.server }}" > config
+          echo key = "${{ github.event.inputs.key }}" >> config
+          echo custom-rendezvous-server = "${{ github.event.inputs.server }}" >> config
           
       - name: Build Support.exe
-        run: cmd /c "copy /b rustdesk.exe+config Support.exe"
+        shell: cmd
+        run: copy /b rustdesk.exe+config Support.exe
           
-      - uses: actions/upload-artifact@v4
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
         with:
           name: Support.exe
           path: Support.exe
