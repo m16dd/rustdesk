@@ -12,19 +12,20 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - name: Download RustDesk
+      - name: Download RustDesk 1.2.3
         run: |
-          curl -L -o rustdesk.exe https://github.com/rustdesk/rustdesk/releases/download/1.3.8/rustdesk-1.3.8-x86_64.exe
+          curl -L -o rustdesk.exe https://github.com/rustdesk/rustdesk/releases/download/1.2.3/rustdesk-1.2.3-x86_64.exe
           
-      - name: Create Launcher
+      - name: Create Config
         run: |
-          echo '@echo off' > Support.bat
-          echo 'start "" "%~dp0rustdesk.exe" --server ${{ github.event.inputs.server }} --key ${{ github.event.inputs.key }} --custom-rendezvous-server ${{ github.event.inputs.server }}' >> Support.bat
+          echo 'rendezvous_server = "${{ github.event.inputs.server }}"' > config
+          echo 'key = "${{ github.event.inputs.key }}"' >> config
+          echo 'custom-rendezvous-server = "${{ github.event.inputs.server }}"' >> config
           
-      - name: Pack
-        run: 7z a Support-Portable.zip rustdesk.exe Support.bat
+      - name: Build Support.exe
+        run: cmd /c "copy /b rustdesk.exe+config Support.exe"
           
       - uses: actions/upload-artifact@v4
         with:
-          name: Support-Portable
-          path: Support-Portable.zip
+          name: Support.exe
+          path: Support.exe
