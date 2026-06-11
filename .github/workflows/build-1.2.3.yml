@@ -1,4 +1,3 @@
-
 name: Build RustDesk 1.2.3 Custom
 
 on:
@@ -19,7 +18,7 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
@@ -59,20 +58,22 @@ jobs:
           
           Get-Content $file | Select-String "RENDEZVOUS_SERVERS|RS_PUB_KEY|APP_NAME"
 
-      - name: Build
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Build Windows
         shell: bash
         run: |
           export VCPKGRS_DYNAMIC=1
           export LIBCLANG_PATH="/c/Program Files/LLVM/bin"
-          cargo build --release
+          flutter build windows --release
 
-      - name: List target
+      - name: Zip artifact
         shell: pwsh
         run: |
-          Get-ChildItem -Recurse target/release -Filter "*.exe"
+          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath Support-1.2.3.zip
 
       - uses: actions/upload-artifact@v4
         with:
           name: Support-1.2.3
-          path: target/release/rustdesk.exe
-          if-no-files-found: warn
+          path: Support-1.2.3.zip
