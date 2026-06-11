@@ -22,10 +22,14 @@ jobs:
         run: |
           curl -L -o rustdesk.exe https://github.com/rustdesk/rustdesk/releases/download/1.2.3/rustdesk-1.2.3-x86-sciter.exe
 
-      - name: Download 7zS.sfx
+      - name: Download 7z SFX Module
         run: |
-          curl -L -o 7z2301-extra.7z https://www.7-zip.org/a/7z2301-extra.7z
-          7z e 7z2301-extra.7z 7zS.sfx -r
+          curl -L -o 7z-extra.7z https://www.7-zip.org/a/7z2301-extra.7z
+          7z x 7z-extra.7z 7zS.sfx -o.
+
+      - name: Check files
+        shell: cmd
+        run: dir
 
       - name: Create Config
         shell: cmd
@@ -40,16 +44,15 @@ jobs:
         run: |
           echo ;!@Install@!UTF-8! > config.txt
           echo Title="Support" >> config.txt
-          echo Progress="no" >> config.txt
           echo GUIMode="2" >> config.txt
-          echo RunProgram="cmd /c mkdir \"%%APPDATA%%\\RustDesk\\config\" 2^>nul ^& copy /Y RustDesk2.toml \"%%APPDATA%%\\RustDesk\\config\\RustDesk2.toml\" ^& start \"\" rustdesk.exe" >> config.txt
+          echo RunProgram="cmd /c if not exist \"%%APPDATA%%\\RustDesk\\config\" mkdir \"%%APPDATA%%\\RustDesk\\config\" ^& copy /Y RustDesk2.toml \"%%APPDATA%%\\RustDesk\\config\\\" ^& start \"\" rustdesk.exe" >> config.txt
           echo ;!@InstallEnd@! >> config.txt
 
       - name: Build Support.exe
         shell: cmd
         run: |
           7z a temp.7z rustdesk.exe RustDesk2.toml
-          copy /b 7zS.sfx + config.txt + temp.7z Support.exe
+          copy /b 7zS.sfx+config.txt+temp.7z Support.exe
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
