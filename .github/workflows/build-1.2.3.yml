@@ -12,7 +12,7 @@ on:
         required: true
         default: '21116'
       key:
-        description: 'Public Key'
+        description: 'Public Key aus id_ed25519.pub'
         required: true
 
 jobs:
@@ -30,6 +30,8 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
 
       - name: Install LLVM + vcpkg deps
         run: |
@@ -42,20 +44,8 @@ jobs:
       - name: Patch consts.rs
         shell: bash
         run: |
-          sed -i 's|pub const RENDEZVOUS_SERVERS: &[&str] = &[];|pub const RENDEZVOUS_SERVERS: \&[\&str] = \&["${{ github.event.inputs.server }}:${{ github.event.inputs.port }}"];|g' src/consts.rs
-          sed -i 's|pub const RS_PUB_KEY: &str = "";|pub const RS_PUB_KEY: \&str = "${{ github.event.inputs.key }}";|g' src/consts.rs
-          sed -i 's|pub const APP_NAME: &str = "RustDesk";|pub const APP_NAME: \&str = "Support";|g' src/consts.rs
+          perl -pi -e 's/pub const RENDEZVOUS_SERVERS: \Q&[\E&str\] = &\[];/pub const RENDEZVOUS_SERVERS: \&[\&str] = \&["${{ github.event.inputs.server }}:${{ github.event.inputs.port }}"];/g' src/consts.rs
+          perl -pi -e 's/pub const RS_PUB_KEY: &str = "";/pub const RS_PUB_KEY: \&str = "${{ github.event.inputs.key }}";/g' src/consts.rs
+          perl -pi -e 's/pub const APP_NAME: &str = "RustDesk";/pub const APP_NAME: \&str = "Support";/g' src/consts.rs
           echo "=== Patch Check ==="
-          cat src/consts.rs | grep -E "RENDEZVOUS_SERVERS|RS_PUB_KEY|APP_NAME"
-
-      - name: Build
-        shell: bash
-        run: |
-          export VCPKGRS_DYNAMIC=1
-          cargo build --release --features hwcodec,sciter
-
-      - name: Upload
-        uses: actions/upload-artifact@v4
-        with:
-          name: Support-1.2.3
-          path: target/release/rustdesk.exe
+          grep -
