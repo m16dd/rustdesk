@@ -35,7 +35,7 @@ jobs:
           flutter-version: '3.16.9'
 
       - name: Install Rust Bridge Generator
-        run: cargo install flutter_rust_bridge_codegen --version 1.80.1 --locked
+        run: cargo install flutter_rust_bridge_codegen --version 1.70.0 --locked
 
       - name: Install deps
         run: |
@@ -59,36 +59,11 @@ jobs:
             -replace 'pub const APP_NAME: &str = "RustDesk";', 'pub const APP_NAME: &str = "Support";' `
             | Set-Content $file
           
-          Write-Host "=== Patch Check ==="
           Get-Content $file | Select-String "RENDEZVOUS_SERVERS|RS_PUB_KEY|APP_NAME"
-
-      - name: Patch pubspec.yaml
-        working-directory: flutter
-        shell: pwsh
-        run: |
-          Remove-Item pubspec.lock -ErrorAction SilentlyContinue
-          $yaml = Get-Content pubspec.yaml -Raw
-          $yaml = $yaml -replace 'ffigen: \^.*', 'ffigen: ^8.0.1'
-          $yaml = $yaml -replace 'flutter_rust_bridge: \^.*', 'flutter_rust_bridge: ^1.80.1'
-          $yaml = $yaml -replace 'build_runner: \^.*', 'build_runner: ^2.4.8'
-          Set-Content pubspec.yaml $yaml
-          Write-Host "=== pubspec.yaml nach Patch ==="
-          Get-Content pubspec.yaml | Select-String "ffigen|flutter_rust_bridge|build_runner"
-
-      - name: Flutter clean
-        working-directory: flutter
-        run: flutter clean
 
       - name: Flutter pub get
         working-directory: flutter
         run: flutter pub get
-
-      - name: Check ffigen version
-        working-directory: flutter
-        shell: pwsh
-        run: |
-          Write-Host "=== Installierte ffigen Version ==="
-          dart pub deps | Select-String "ffigen"
 
       - name: Generate Bridge
         working-directory: flutter
@@ -111,4 +86,11 @@ jobs:
             Get-ChildItem $releaseDir
             Compress-Archive -Path $releaseDir/* -DestinationPath Support-1.2.3.zip
           } else {
-            Write-Host "Release Ord
+            Write-Host "Release Ordner nicht gefunden!"
+            exit 1
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Support-1.2.3
+          path: Support-1.2.3.zip
