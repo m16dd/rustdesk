@@ -61,16 +61,24 @@ jobs:
           
           Get-Content $file | Select-String "RENDEZVOUS_SERVERS|RS_PUB_KEY|APP_NAME"
 
-      - name: Update ffigen
+      - name: Patch pubspec.yaml
         working-directory: flutter
+        shell: pwsh
         run: |
-          (Get-Content pubspec.yaml) -replace 'ffigen: \^2\.0\.0', 'ffigen: ^8.0.0' | Set-Content pubspec.yaml
-          flutter pub get
+          $content = Get-Content pubspec.yaml -Raw
+          $content = $content -replace 'ffigen: \^2\.0\.0', 'ffigen: ^8.0.1'
+          $content = $content -replace 'flutter_rust_bridge: \^1\.70\.0', 'flutter_rust_bridge: ^1.80.1'
+          Set-Content pubspec.yaml $content
+          Write-Host "=== pubspec.yaml ==="
+          Get-Content pubspec.yaml | Select-String "ffigen|flutter_rust_bridge"
+
+      - name: Flutter pub upgrade
+        working-directory: flutter
+        run: flutter pub upgrade
 
       - name: Generate Bridge
         working-directory: flutter
-        run: |
-          flutter_rust_bridge_codegen --rust-input ../src/flutter_ffi.rs --dart-output lib/generated_bridge.dart --c-output ../src/bridge_generated.rs
+        run: flutter_rust_bridge_codegen --rust-input ../src/flutter_ffi.rs --dart-output lib/generated_bridge.dart --c-output ../src/bridge_generated.rs
 
       - name: Build Windows
         working-directory: flutter
