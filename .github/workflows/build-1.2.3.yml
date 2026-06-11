@@ -36,23 +36,15 @@ jobs:
 
       - name: Install deps
         run: |
-          choco install llvm
+          choco install llvm nasm
           git clone https://github.com/microsoft/vcpkg
           .\vcpkg\bootstrap-vcpkg.bat
-          .\vcpkg\vcpkg.exe install libvpx:x64-windows-static libyuv:x64-windows-static opus:x64-windows-static
+          .\vcpkg\vcpkg.exe install libvpx:x64-windows-static libyuv:x64-windows-static opus:x64-windows-static aom:x64-windows-static
           echo "VCPKG_ROOT=$env:GITHUB_WORKSPACE\vcpkg" >> $env:GITHUB_ENV
+          echo "LIBCLANG_PATH=C:\Program Files\LLVM\bin" >> $env:GITHUB_ENV
 
       - name: Patch common.rs
         shell: pwsh
         run: |
           $file = "src/common.rs"
-          $server = "${{ github.event.inputs.server }}:${{ github.event.inputs.port }}"
-          $key = "${{ github.event.inputs.key }}"
-          
-          (Get-Content $file) `
-            -replace 'pub const RENDEZVOUS_SERVERS: &\[&str\] = &\[.*\];', "pub const RENDEZVOUS_SERVERS: &[&str] = &[`"$server`"];" `
-            -replace 'pub const RS_PUB_KEY: &str = ".*";', "pub const RS_PUB_KEY: &str = `"$key`";" `
-            -replace 'pub const APP_NAME: &str = "RustDesk";', 'pub const APP_NAME: &str = "Support";' `
-            | Set-Content $file
-          
-          Write-Host "
+          $server = "${{ github.event.inputs.server }}:${{
