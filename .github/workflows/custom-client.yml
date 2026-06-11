@@ -1,6 +1,6 @@
 name: Build Custom RustDesk Client
 
-on: 
+on:
   workflow_dispatch:
     inputs:
       server:
@@ -21,16 +21,31 @@ jobs:
       - name: Download RustDesk 1.2.3 Sciter
         run: |
           curl -L -o rustdesk.exe https://github.com/rustdesk/rustdesk/releases/download/1.2.3/rustdesk-1.2.3-x86-sciter.exe
-          
+
       - name: Create Config
         shell: cmd
         run: |
-          (echo rendezvous-server=${{ github.event.inputs.server }}:${{ github.event.inputs.port }}&& echo key=${{ github.event.inputs.key }}&& echo custom-rendezvous-server=${{ github.event.inputs.server }}:${{ github.event.inputs.port }}) > config
-          
+          echo [options] > RustDesk2.toml
+          echo custom-rendezvous-server = "${{ github.event.inputs.server }}:${{ github.event.inputs.port }}" >> RustDesk2.toml
+          echo key = "${{ github.event.inputs.key }}" >> RustDesk2.toml
+          echo relay-server = "${{ github.event.inputs.server }}" >> RustDesk2.toml
+
+      - name: Create SFX Config
+        shell: cmd
+        run: |
+          echo ;!@Install@!UTF-8! > config.txt
+          echo Title="Support Client" >> config.txt
+          echo Progress="no" >> config.txt
+          echo GUIMode="2" >> config.txt
+          echo RunProgram="cmd /c mkdir \"%%APPDATA%%\\RustDesk\\config\" 2^>nul ^& copy /Y RustDesk2.toml \"%%APPDATA%%\\RustDesk\\config\\RustDesk2.toml\" ^& start \"\" rustdesk.exe" >> config.txt
+          echo ;!@InstallEnd@! >> config.txt
+
       - name: Build Support.exe
         shell: cmd
-        run: copy /b rustdesk.exe+config Support.exe
-          
+        run: |
+          7z a temp.7z rustdesk.exe RustDesk2.toml
+          copy /b 7zS.sfx + config.txt + temp.7z Support.exe
+
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
