@@ -19,34 +19,51 @@ jobs:
   build:
     runs-on: windows-latest
     timeout-minutes: 60
+    
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout RustDesk 1.2.3
+        uses: actions/checkout@v4
         with:
           repository: rustdesk/rustdesk
           ref: 1.2.3
           submodules: recursive
 
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Install Flutter
+      - name: Install Flutter 3.16.9
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           flutter-version: '3.16.9'
 
-      - name: Install Rust Bridge Generator
-        run: cargo install flutter_rust_bridge_codegen --version 1.70.0 --locked
-
-      - name: Install deps
+      - name: Install LLVM + NASM + vcpkg
+        shell: pwsh
         run: |
-          choco install llvm nasm
+          choco install llvm nasm -y
           git clone https://github.com/microsoft/vcpkg
           .\vcpkg\bootstrap-vcpkg.bat
           .\vcpkg\vcpkg.exe install libvpx:x64-windows-static libyuv:x64-windows-static opus:x64-windows-static aom:x64-windows-static
           echo "VCPKG_ROOT=$env:GITHUB_WORKSPACE\vcpkg" >> $env:GITHUB_ENV
           echo "LIBCLANG_PATH=C:\Program Files\LLVM\bin" >> $env:GITHUB_ENV
 
-      - name: Patch common.rs
+      - name: Verify all dependencies
+        shell: bash
+        run: |
+          echo "=== Rust Version ==="
+          rustc --version
+          echo "=== Flutter Version ==="
+          flutter --version
+          echo "=== Dart Version ==="
+          dart --version
+          echo "=== pubspec.yaml ==="
+          grep -E 'flutter_rust_bridge|ffigen|build_runner' flutter/pubspec.yaml
+          echo "=== Cargo.toml ==="
+          grep 'flutter_rust_bridge' Cargo.toml
+          echo "=== Python ==="
+          python3 --version
+
+      - name: Patch src/common.rs
         shell: pwsh
         run: |
           $file = "src/common.rs"
@@ -59,38 +76,31 @@ jobs:
             -replace 'pub const APP_NAME: &str = "RustDesk";', 'pub const APP_NAME: &str = "Support";' `
             | Set-Content $file
           
+          Write-Host "=== Verifying Patch ==="
           Get-Content $file | Select-String "RENDEZVOUS_SERVERS|RS_PUB_KEY|APP_NAME"
 
-      - name: Flutter pub get
-        working-directory: flutter
-        run: flutter pub get
-
-      - name: Generate Bridge
-        working-directory: flutter
-        run: flutter_rust_bridge_codegen --rust-input ../src/flutter_ffi.rs --dart-output lib/generated_bridge.dart --c-output ../src/bridge_generated.rs
-
-      - name: Build Windows
-        working-directory: flutter
+      - name: Build via build.py
         shell: bash
         run: |
           export VCPKGRS_DYNAMIC=1
           export LIBCLANG_PATH="/c/Program Files/LLVM/bin"
-          flutter build windows --release
+          python3 build.py --flutter --hwcodec --skip-portable-pack
 
-      - name: Zip artifact
+      - name: Create ZIP
         shell: pwsh
         run: |
           $releaseDir = "flutter/build/windows/x64/runner/Release"
-          if (Test-Path $releaseDir) {
-            Write-Host "=== Inhalt Release Ordner ==="
-            Get-ChildItem $releaseDir
-            Compress-Archive -Path $releaseDir/* -DestinationPath Support-1.2.3.zip
-          } else {
-            Write-Host "Release Ordner nicht gefunden!"
+          if (-not (Test-Path $releaseDir)) {
+            Write-Host "ERROR: Release directory not found"
             exit 1
           }
+          Write-Host "=== Release Directory Content ==="
+          Get-ChildItem $releaseDir
+          Compress-Archive -Path $releaseDir/* -DestinationPath Support-1.2.3.zip -Force
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: Support-1.2.3
+          name: Support-1.2.3-Windows
           path: Support-1.2.3.zip
+          if-no-files-found: error
