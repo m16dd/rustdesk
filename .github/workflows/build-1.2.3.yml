@@ -26,15 +26,6 @@ jobs:
           ref: 1.2.3
           submodules: recursive
 
-      - name: Find and show target file
-        shell: bash
-        run: |
-          echo "=== Suche RENDEZVOUS_SERVERS ==="
-          grep -r "RENDEZVOUS_SERVERS" . --include="*.rs" || true
-          echo "=== Gefundene Dateien ==="
-          find . -name "common.rs"
-          find . -name "constants.rs"
-
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Install deps
@@ -49,13 +40,6 @@ jobs:
         shell: pwsh
         run: |
           $file = "src/common.rs"
-          if (!(Test-Path $file)) {
-            Write-Host "FEHLER: $file nicht gefunden"
-            Write-Host "Suche alle Dateien mit RENDEZVOUS_SERVERS:"
-            Get-ChildItem -Recurse -Filter "*.rs" | Select-String "RENDEZVOUS_SERVERS" | Select-Object Path -Unique
-            exit 1
-          }
-          
           $server = "${{ github.event.inputs.server }}:${{ github.event.inputs.port }}"
           $key = "${{ github.event.inputs.key }}"
           
@@ -72,7 +56,7 @@ jobs:
         shell: bash
         run: |
           export VCPKGRS_DYNAMIC=1
-          cargo build --release --features hwcodec,sciter
+          cargo build --release
 
       - uses: actions/upload-artifact@v4
         with:
