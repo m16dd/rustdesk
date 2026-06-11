@@ -1,0 +1,61 @@
+name: Build RustDesk 1.2.3 Custom
+
+on:
+  workflow_dispatch:
+    inputs:
+      server:
+        description: 'Rendezvous Server'
+        required: true
+        default: 'mra.dyndd.de'
+      port:
+        description: 'Port'
+        required: true
+        default: '21116'
+      key:
+        description: 'Public Key'
+        required: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    
+    steps:
+      - name: Checkout RustDesk 1.2.3
+        uses: actions/checkout@v4
+        with:
+          repository: rustdesk/rustdesk
+          ref: 1.2.3
+          submodules: recursive
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install LLVM + vcpkg deps
+        run: |
+          choco install llvm
+          git clone https://github.com/microsoft/vcpkg
+          .\vcpkg\bootstrap-vcpkg.bat
+          .\vcpkg\vcpkg.exe install libvpx:x64-windows-static libyuv:x64-windows-static opus:x64-windows-static
+          echo "VCPKG_ROOT=$env:GITHUB_WORKSPACE\vcpkg" >> $env:GITHUB_ENV
+
+      - name: Patch consts.rs
+        shell: bash
+        run: |
+          sed -i 's|pub const RENDEZVOUS_SERVERS: &[&str] = &[];|pub const RENDEZVOUS_SERVERS: \&[\&str] = \&["${{ github.event.inputs.server }}:${{ github.event.inputs.port }}"];|g' src/consts.rs
+          sed -i 's|pub const RS_PUB_KEY: &str = "";|pub const RS_PUB_KEY: \&str = "${{ github.event.inputs.key }}";|g' src/consts.rs
+          sed -i 's|pub const APP_NAME: &str = "RustDesk";|pub const APP_NAME: \&str = "Support";|g' src/consts.rs
+          echo "=== Patch Check ==="
+          cat src/consts.rs | grep -E "RENDEZVOUS_SERVERS|RS_PUB_KEY|APP_NAME"
+
+      - name: Build
+        shell: bash
+        run: |
+          export VCPKGRS_DYNAMIC=1
+          cargo build --release --features hwcodec,sciter
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: Support-1.2.3
+          path: target/release/rustdesk.exe
