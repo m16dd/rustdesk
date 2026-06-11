@@ -4,8 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       server:
-        description: 'Rendezvous Server z.B. mra.dyndd.de:21116'
+        description: 'Rendezvous Server z.B. mra.dyndd.de'
         required: true
+      port:
+        description: 'Port z.B. 21116'
+        required: true
+        default: '21116'
       key:
         description: 'Public Key aus id_ed25519.pub'
         required: true
@@ -21,10 +25,7 @@ jobs:
       - name: Create Config
         shell: cmd
         run: |
-          echo rendezvous_server = "${{ github.event.inputs.server }}" > config
-          echo key = "${{ github.event.inputs.key }}" >> config
-          echo custom-rendezvous-server = "${{ github.event.inputs.server }}" >> config
-          echo relay-server = "${{ github.event.inputs.server }}" >> config
+          (echo rendezvous-server=${{ github.event.inputs.server }}:${{ github.event.inputs.port }}&& echo key=${{ github.event.inputs.key }}&& echo custom-rendezvous-server=${{ github.event.inputs.server }}:${{ github.event.inputs.port }}) > config
           
       - name: Build Support.exe
         shell: cmd
