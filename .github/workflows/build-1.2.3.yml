@@ -59,9 +59,11 @@ jobs:
           Get-Content $file | Select-String "RENDEZVOUS_SERVERS|RS_PUB_KEY|APP_NAME"
 
       - name: Flutter pub get
+        working-directory: flutter
         run: flutter pub get
 
       - name: Build Windows
+        working-directory: flutter
         shell: bash
         run: |
           export VCPKGRS_DYNAMIC=1
@@ -71,7 +73,7 @@ jobs:
       - name: Zip artifact
         shell: pwsh
         run: |
-          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath Support-1.2.3.zip
+          Compress-Archive -Path flutter/build/windows/x64/runner/Release/* -DestinationPath Support-1.2.3.zip
 
       - uses: actions/upload-artifact@v4
         with:
