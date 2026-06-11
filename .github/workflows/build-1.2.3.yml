@@ -12,7 +12,7 @@ on:
         required: true
         default: '21116'
       key:
-        description: 'Public Key aus id_ed25519.pub'
+        description: 'Public Key'
         required: true
 
 jobs:
@@ -28,10 +28,15 @@ jobs:
           ref: 1.2.3
           submodules: recursive
 
+      - name: Debug - List files
+        shell: bash
+        run: |
+          pwd
+          ls -la
+          ls -la src/
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-pc-windows-msvc
 
       - name: Install LLVM + vcpkg deps
         run: |
@@ -42,10 +47,29 @@ jobs:
           echo "VCPKG_ROOT=$env:GITHUB_WORKSPACE\vcpkg" >> $env:GITHUB_ENV
 
       - name: Patch consts.rs
+        shell: pwsh
+        run: |
+          if (!(Test-Path "src/consts.rs")) { 
+            Write-Host "src/consts.rs fehlt. Suche Datei..."
+            Get-ChildItem -Recurse -Filter "consts.rs" 
+            exit 1
+          }
+          $content = Get-Content src/consts.rs -Raw
+          $content = $content -replace 'pub const RENDEZVOUS_SERVERS: &\[[^\]]*\] = &\[[^\]]*\];', 'pub const RENDEZVOUS_SERVERS: &[&str] = &["${{ github.event.inputs.server }}:${{ github.event.inputs.port }}"];'
+          $content = $content -replace 'pub const RS_PUB_KEY: &str = "".*;', 'pub const RS_PUB_KEY: &str = "${{ github.event.inputs.key }}";'
+          $content = $content -replace 'pub const APP_NAME: &str = "RustDesk";', 'pub const APP_NAME: &str = "Support";'
+          Set-Content src/consts.rs $content
+          Write-Host "=== Patch Check ==="
+          Get-Content src/consts.rs | Select-String "RENDEZVOUS_SERVERS|RS_PUB_KEY|APP_NAME"
+
+      - name: Build
         shell: bash
         run: |
-          perl -pi -e 's/pub const RENDEZVOUS_SERVERS: \Q&[\E&str\] = &\[];/pub const RENDEZVOUS_SERVERS: \&[\&str] = \&["${{ github.event.inputs.server }}:${{ github.event.inputs.port }}"];/g' src/consts.rs
-          perl -pi -e 's/pub const RS_PUB_KEY: &str = "";/pub const RS_PUB_KEY: \&str = "${{ github.event.inputs.key }}";/g' src/consts.rs
-          perl -pi -e 's/pub const APP_NAME: &str = "RustDesk";/pub const APP_NAME: \&str = "Support";/g' src/consts.rs
-          echo "=== Patch Check ==="
-          grep -
+          export VCPKGRS_DYNAMIC=1
+          cargo build --release --features hwcodec,sciter
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: Support-1.2.3
+          path: target/release/rustdesk.exe
