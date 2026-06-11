@@ -14,9 +14,9 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - name: Download RustDesk 1.2.3
+      - name: Download RustDesk 1.2.3 Sciter
         run: |
-          curl -L -o rustdesk.exe https://github.com/rustdesk/rustdesk/releases/download/1.2.3/rustdesk-1.2.3-x86_64.exe
+          curl -L -o rustdesk.exe https://github.com/rustdesk/rustdesk/releases/download/1.2.3/rustdesk-1.2.3-x86-sciter.exe
           
       - name: Create Config
         shell: cmd
@@ -24,6 +24,7 @@ jobs:
           echo rendezvous_server = "${{ github.event.inputs.server }}" > config
           echo key = "${{ github.event.inputs.key }}" >> config
           echo custom-rendezvous-server = "${{ github.event.inputs.server }}" >> config
+          echo relay-server = "${{ github.event.inputs.server }}" >> config
           
       - name: Build Support.exe
         shell: cmd
