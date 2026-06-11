@@ -27,10 +27,6 @@ jobs:
           curl -L -o 7z-extra.7z https://www.7-zip.org/a/7z2301-extra.7z
           7z x 7z-extra.7z 7zS.sfx -o.
 
-      - name: Check files
-        shell: cmd
-        run: dir
-
       - name: Create Config
         shell: cmd
         run: |
