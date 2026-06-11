@@ -30,11 +30,12 @@ jobs:
 
       - name: Install deps
         run: |
-          choco install llvm
+          choco install llvm nasm
           git clone https://github.com/microsoft/vcpkg
           .\vcpkg\bootstrap-vcpkg.bat
-          .\vcpkg\vcpkg.exe install libvpx:x64-windows-static libyuv:x64-windows-static opus:x64-windows-static
+          .\vcpkg\vcpkg.exe install libvpx:x64-windows-static libyuv:x64-windows-static opus:x64-windows-static libaom:x64-windows-static
           echo "VCPKG_ROOT=$env:GITHUB_WORKSPACE\vcpkg" >> $env:GITHUB_ENV
+          echo "LIBCLANG_PATH=C:\Program Files\LLVM\bin" >> $env:GITHUB_ENV
 
       - name: Patch common.rs
         shell: pwsh
@@ -56,6 +57,7 @@ jobs:
         shell: bash
         run: |
           export VCPKGRS_DYNAMIC=1
+          export LIBCLANG_PATH="/c/Program Files/LLVM/bin"
           cargo build --release
 
       - uses: actions/upload-artifact@v4
