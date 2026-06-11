@@ -1,7 +1,60 @@
 name: Build Custom RustDesk Client
 
 on:
+  workflow_dispatch:name: Build Custom RustDesk
+
+on:
   workflow_dispatch:
+    inputs:
+      server:
+        description: 'Rendezvous Server'
+        required: true
+        default: 'mra.dyndd.de'
+      port:
+        description: 'Port'
+        required: true
+        default: '21116'
+      key:
+        description: 'Public Key'
+        required: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout RustDesk 1.2.3
+        uses: actions/checkout@v4
+        with:
+          repository: rustdesk/rustdesk
+          ref: 1.2.3
+          submodules: recursive
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install vcpkg
+        run: |
+          git clone https://github.com/microsoft/vcpkg
+          .\vcpkg\bootstrap-vcpkg.bat
+          echo "VCPKG_ROOT=$env:GITHUB_WORKSPACE\vcpkg" >> $env:GITHUB_ENV
+
+      - name: Set custom server
+        shell: bash
+        run: |
+          sed -i 's/pub const RENDEZVOUS_SERVERS: &\[&str\] = &\[\];/pub const RENDEZVOUS_SERVERS: \&[\&str] = \&["${{ github.event.inputs.server }}:${{ github.event.inputs.port }}"];/g' src/consts.rs
+          sed -i 's/pub const RS_PUB_KEY: &str = "";*/pub const RS_PUB_KEY: \&str = "${{ github.event.inputs.key }}";/g' src/consts.rs
+          sed -i 's/pub const APP_NAME: &str = "RustDesk";/pub const APP_NAME: \&str = "Support";/g' src/consts.rs
+
+      - name: Build
+        shell: bash
+        run: |
+          python3 build.py --portable --hwcodec --sciter
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Support.exe
+          path: target/release/rustdesk.exe
     inputs:
       server:
         description: 'Rendezvous Server z.B. mra.dyndd.de'
