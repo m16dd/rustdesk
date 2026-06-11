@@ -55,27 +55,4 @@ jobs:
             -replace 'pub const APP_NAME: &str = "RustDesk";', 'pub const APP_NAME: &str = "Support";' `
             | Set-Content $file
           
-          Write-Host "=== Patch Check ==="
-          Get-Content $file | Select-String "RENDEZVOUS_SERVERS|RS_PUB_KEY|APP_NAME"
-
-      - name: Build
-        shell: bash
-        run: |
-          export VCPKGRS_DYNAMIC=1
-          cargo build --release
-
-      - name: Debug - List target
-        shell: pwsh
-        run: |
-          Write-Host "=== Inhalt target/release ==="
-          Get-ChildItem -Recurse target/release -ErrorAction SilentlyContinue | Select-Object FullName, Length
-          Write-Host "=== Suche exe Dateien ==="
-          Get-ChildItem -Recurse target/release -Filter "*.exe" -ErrorAction SilentlyContinue
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Support-1.2.3
-          path: |
-            target/release/*.exe
-            target/release/rustdesk.exe
-          if-no-files-found: warn
+          Write-Host "
