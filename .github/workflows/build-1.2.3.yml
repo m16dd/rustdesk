@@ -52,35 +52,27 @@ jobs:
       - name: Patch1
         shell: pwsh
         run: |
-          $file = "Cargo.toml"
-          $content = Get-Content $file
+          $cargo = Get-Content "Cargo.toml" -Raw
           
-          # Wir gehen jede Zeile durch und ersetzen magnum-opus komplett
-          for ($i = 0; $i -lt $content.Count; $i++) {
-            if ($content[$i] -match 'magnum-opus\s*=\s*\{') {
-              $content[$i] = 'magnum-opus = { git = "https://github.com/rustdesk-org/magnum-opus", rev = "79be072c", default-features = false }'
-            }
-            # Alle anderen toten Deps
-            if ($content[$i] -match 'reqwest\s*=\s*\{ git') {
-              $content[$i] = 'reqwest = { version = "0.11", default-features = false, features = ["blocking", "json", "rustls-tls"] }'
-            }
-            if ($content[$i] -match 'tao\s*=\s*\{ git') {
-              $content[$i] = 'tao = { version = "0.16", default-features = false }'
-            }
-            if ($content[$i] -match 'tray-icon\s*=\s*\{ git') {
-              $content[$i] = 'tray-icon = "0.8"'
-            }
-            if ($content[$i] -match 'keepawake-rs\s*=\s*\{ git') {
-              $content[$i] = 'keepawake = "0.1"'
-            }
-            if ($content[$i] -match 'hbb_common\s*=\s*\{ git') {
-              $content[$i] = 'hbb_common = { path = "libs/hbb_common" }'
-            }
-          }
+          # 1. Normale tote Deps ersetzen
+          $cargo = $cargo -replace 'reqwest = \{ git = "https://github.com/rustdesk-org/reqwest".* \}', 'reqwest = { version = "0.11", default-features = false, features = ["blocking", "json", "rustls-tls"] }'
+          $cargo = $cargo -replace 'tao = \{ git = "https://github.com/rustdesk-org/tao".* \}', 'tao = { version = "0.16", default-features = false }'
+          $cargo = $cargo -replace 'tray-icon = \{ git = "https://github.com/rustdesk-org/tray-icon".* \}', 'tray-icon = "0.8"'
+          $cargo = $cargo -replace 'keepawake-rs = \{ git = "https://github.com/rustdesk-org/keepawake-rs".* \}', 'keepawake = "0.1"'
+          $cargo = $cargo -replace 'hbb_common = \{ git = "https://github.com/rustdesk/hbb_common".* \}', 'hbb_common = { path = "libs/hbb_common" }'
           
-          Set-Content $file $content
-          Write-Host "=== Check magnum-opus ==="
-          Select-String -Path $file -Pattern "magnum-opus" | Select-Object Line
+          # 2. magnum-opus mit [patch] überschreiben - das killt ALLE Features
+          $patch = @"
+
+          [patch.crates-io]
+          magnum-opus = { git = "https://github.com/rustdesk-org/magnum-opus", rev = "79be072c" }
+          "@
+          
+          $cargo += $patch
+          Set-Content "Cargo.toml" $cargo
+          
+          Write-Host "=== Check Patch Section ==="
+          Select-String -Path "Cargo.toml" -Pattern "\[patch.crates-io\]" -Context 0,3
 
       - name: Patch2
         shell: pwsh
