@@ -54,14 +54,10 @@ jobs:
           rustc --version
           echo "=== Flutter Version ==="
           flutter --version
-          echo "=== Dart Version ==="
-          dart --version
           echo "=== pubspec.yaml ==="
           grep -E 'flutter_rust_bridge|ffigen|build_runner' flutter/pubspec.yaml
-          echo "=== Cargo.toml ==="
-          grep 'flutter_rust_bridge' Cargo.toml
-          echo "=== Python ==="
-          python3 --version
+          echo "=== build.py help ==="
+          python3 build.py -h
 
       - name: Patch src/common.rs
         shell: pwsh
@@ -84,7 +80,7 @@ jobs:
         run: |
           export VCPKGRS_DYNAMIC=1
           export LIBCLANG_PATH="/c/Program Files/LLVM/bin"
-          python3 build.py --flutter --hwcodec --skip-portable-pack
+          python3 build.py --flutter --hwcodec
 
       - name: Create ZIP
         shell: pwsh
