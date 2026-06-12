@@ -51,9 +51,11 @@ jobs:
         shell: pwsh
         run: |
           $file = "build.py"
-          (Get-Content $file) -replace 'def # external_resources', 'def external_resources' | Set-Content $file
-          Write-Host "=== Patched build.py line 240 ==="
-          Get-Content $file | Select-String "def external_resources" -Context 0,1
+          $content = Get-Content $file -Raw
+          $content = $content -replace 'def # external_resources', 'def external_resources'
+          Set-Content $file $content
+          Write-Host "=== Patched build.py ==="
+          Select-String -Path $file -Pattern "def external_resources"
 
       - name: Patch src/common.rs
         shell: pwsh
@@ -62,14 +64,14 @@ jobs:
           $server = "${{ github.event.inputs.server }}:${{ github.event.inputs.port }}"
           $key = "${{ github.event.inputs.key }}"
           
-          (Get-Content $file) `
-            -replace 'pub const RENDEZVOUS_SERVERS: &\[&str\] = &\[.*\];', "pub const RENDEZVOUS_SERVERS: &[&str] = &[`"$server`"];" `
-            -replace 'pub const RS_PUB_KEY: &str = ".*";', "pub const RS_PUB_KEY: &str = `"$key`";" `
-            -replace 'pub const APP_NAME: &str = "RustDesk";', 'pub const APP_NAME: &str = "Support";' `
-            | Set-Content $file
+          $content = Get-Content $file
+          $content = $content -replace 'pub const RENDEZVOUS_SERVERS: &\[&str\] = &\[.*\];', "pub const RENDEZVOUS_SERVERS: &[&str] = &[`"$server`"];"
+          $content = $content -replace 'pub const RS_PUB_KEY: &str = ".*";', "pub const RS_PUB_KEY: &str = `"$key`";"
+          $content = $content -replace 'pub const APP_NAME: &str = "RustDesk";', 'pub const APP_NAME: &str = "Support";'
+          Set-Content $file $content
           
           Write-Host "=== Verifying Patch ==="
-          Get-Content $file | Select-String "RENDEZVOUS_SERVERS|RS_PUB_KEY|APP_NAME"
+          Select-String -Path $file -Pattern "RENDEZVOUS_SERVERS|RS_PUB_KEY|APP_NAME"
 
       - name: Build via build.py
         shell: bash
@@ -88,7 +90,11 @@ jobs:
           }
           Write-Host "=== Release Directory Content ==="
           Get-ChildItem $releaseDir
-          Compress-Archive -Path $releaseDir/* -DestinationPath Support-1.2.3.zip -Force
+          Compress-Archive -Path "$releaseDir/*" -DestinationPath Support-1.2.3.zip -Force
 
       - name: Upload Artifact
-        uses
+        uses: actions/upload-artifact@v4
+        with:
+          name: Support-1.2.3-Windows
+          path: Support-1.2.3.zip
+          if-no-files-found: error
