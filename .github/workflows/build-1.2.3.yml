@@ -51,18 +51,18 @@ jobs:
         shell: pwsh
         run: |
           $file = "build.py"
-          $content = Get-Content $file -Raw
+          $lines = Get-Content $file
           
-          # 1. Fix Syntax-Fehler: def # external_resources
-          $content = $content -replace 'def # external_resources', 'def external_resources'
+          # Fix Syntax-Fehler: def # external_resources -> def external_resources
+          $lines = $lines -replace '^\s*def # external_resources', '    def external_resources'
           
-          # 2. Kommentiere external_resources Aufruf aus
-          $content = $content -replace 'external_resources\(flutter, args, res_dir\)', '# external_resources(flutter, args, res_dir)'
+          # Deaktiviere external_resources Aufruf
+          $lines = $lines -replace '^\s*external_resources\(flutter, args, res_dir\)', '    # external_resources(flutter, args, res_dir)'
           
-          Set-Content $file $content
+          Set-Content $file $lines
           
           Write-Host "=== Patched build.py ==="
-          Get-Content $file | Select-String "external_resources"
+          Select-String -Path $file -Pattern "def external_resources|external_resources\(" | Select-Object LineNumber,Line
 
       - name: Patch src/common.rs
         shell: pwsh
@@ -71,14 +71,14 @@ jobs:
           $server = "${{ github.event.inputs.server }}:${{ github.event.inputs.port }}"
           $key = "${{ github.event.inputs.key }}"
           
-          (Get-Content $file) `
-            -replace 'pub const RENDEZVOUS_SERVERS: &\[&str\] = &\[.*\];', "pub const RENDEZVOUS_SERVERS: &[&str] = &[`"$server`"];" `
-            -replace 'pub const RS_PUB_KEY: &str = ".*";', "pub const RS_PUB_KEY: &str = `"$key`";" `
-            -replace 'pub const APP_NAME: &str = "RustDesk";', 'pub const APP_NAME: &str = "Support";' `
-            | Set-Content $file
+          $content = Get-Content $file
+          $content = $content -replace 'pub const RENDEZVOUS_SERVERS: &\[&str\] = &\[.*\];', "pub const RENDEZVOUS_SERVERS: &[&str] = &[`"$server`"];"
+          $content = $content -replace 'pub const RS_PUB_KEY: &str = ".*";', "pub const RS_PUB_KEY: &str = `"$key`";"
+          $content = $content -replace 'pub const APP_NAME: &str = "RustDesk";', 'pub const APP_NAME: &str = "Support";'
+          Set-Content $file $content
           
           Write-Host "=== Verifying Patch ==="
-          Get-Content $file | Select-String "RENDEZVOUS_SERVERS|RS_PUB_KEY|APP_NAME"
+          Select-String -Path $file -Pattern "RENDEZVOUS_SERVERS|RS_PUB_KEY|APP_NAME"
 
       - name: Build via build.py
         shell: bash
@@ -97,7 +97,7 @@ jobs:
           }
           Write-Host "=== Release Directory Content ==="
           Get-ChildItem $releaseDir
-          Compress-Archive -Path $releaseDir/* -DestinationPath Support-1.2.3.zip -Force
+          Compress-Archive -Path "$releaseDir/*" -DestinationPath Support-1.2.3.zip -Force
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
