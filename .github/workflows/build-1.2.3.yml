@@ -52,44 +52,42 @@ jobs:
       - name: Patch1
         shell: pwsh
         run: |
-          function Patch-Cargo($path) {
-            $cargo = Get-Content $path
-            for ($i = 0; $i -lt $cargo.Count; $i++) {
-              if ($cargo[$i] -match '^\s*tao\s*=') { $cargo[$i] = '# ' + $cargo[$i] }
-              if ($cargo[$i] -match '^\s*tray-icon\s*=') { $cargo[$i] = '# ' + $cargo[$i] }
-              if ($cargo[$i] -match 'reqwest\s*=\s*\{ git') {
-                $cargo[$i] = 'reqwest = { version = "0.11", default-features = false, features = ["blocking", "json", "rustls-tls"] }'
-              }
-              if ($cargo[$i] -match 'keepawake-rs\s*=\s*\{ git') { $cargo[$i] = 'keepawake = "0.1"' }
-              if ($cargo[$i] -match 'hbb_common\s*=\s*\{ git') { $cargo[$i] = 'hbb_common = { path = "libs/hbb_common" }' }
-              # magnum-opus Zeile direkt überschreiben falls vorhanden
-              if ($cargo[$i] -match 'magnum-opus\s*=\s*\{') {
-                $cargo[$i] = 'magnum-opus = { git = "https://github.com/rustdesk-org/magnum-opus", rev = "79be072c", default-features = false }'
-              }
+          $cargo = Get-Content "Cargo.toml"
+          
+          for ($i = 0; $i -lt $cargo.Count; $i++) {
+            # tao + tray-icon auskommentieren -> kein gdk-sys Konflikt mehr
+            if ($cargo[$i] -match '^\s*tao\s*=') {
+              $cargo[$i] = '# ' + $cargo[$i]
             }
-            Set-Content $path $cargo
+            if ($cargo[$i] -match '^\s*tray-icon\s*=') {
+              $cargo[$i] = '# ' + $cargo[$i]
+            }
+            
+            # Andere tote Deps
+            if ($cargo[$i] -match 'reqwest\s*=\s*\{ git') {
+              $cargo[$i] = 'reqwest = { version = "0.11", default-features = false, features = ["blocking", "json", "rustls-tls"] }'
+            }
+            if ($cargo[$i] -match 'keepawake-rs\s*=\s*\{ git') {
+              $cargo[$i] = 'keepawake = "0.1"'
+            }
+            if ($cargo[$i] -match 'hbb_common\s*=\s*\{ git') {
+              $cargo[$i] = 'hbb_common = { path = "libs/hbb_common" }'
+            }
           }
           
-          # Beide Cargo.toml patchen
-          Patch-Cargo "Cargo.toml"
-          Patch-Cargo "libs/hbb_common/Cargo.toml"
-          
-          # Zusätzlich globaler Patch für alle Fälle
+          # Patch-Section: RICHTIGE URL für magnum-opus
           $patch = @"
 
           [patch."https://github.com/rustdesk/magnum-opus"]
           magnum-opus = { git = "https://github.com/rustdesk-org/magnum-opus", rev = "79be072c" }
-
-          [patch."https://github.com/open-trade/magnum-opus"]
-          magnum-opus = { git = "https://github.com/rustdesk-org/magnum-opus", rev = "79be072c" }
           "@
           
-          Add-Content "Cargo.toml" $patch
+          $cargo = $cargo -join "`n"
+          $cargo += $patch
+          Set-Content "Cargo.toml" $cargo
           
-          Write-Host "=== Check Haupt-Cargo.toml ==="
-          Select-String -Path "Cargo.toml" -Pattern "magnum-opus|^\[patch" | Select-Object Line
-          Write-Host "=== Check hbb_common/Cargo.toml ==="
-          Select-String -Path "libs/hbb_common/Cargo.toml" -Pattern "magnum-opus" | Select-Object Line
+          Write-Host "=== Check ==="
+          Select-String -Path "Cargo.toml" -Pattern "^#.*tao|^#.*tray-icon|\[patch" | Select-Object Line
 
       - name: Patch2
         shell: pwsh
