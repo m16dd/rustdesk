@@ -52,27 +52,42 @@ jobs:
       - name: Patch1
         shell: pwsh
         run: |
-          $cargo = Get-Content "Cargo.toml" -Raw
+          $cargo = Get-Content "Cargo.toml"
           
-          # Normale tote Deps ersetzen
-          $cargo = $cargo -replace 'reqwest = \{ git = "https://github.com/rustdesk-org/reqwest".* \}', 'reqwest = { version = "0.11", default-features = false, features = ["blocking", "json", "rustls-tls"] }'
-          $cargo = $cargo -replace 'tao = \{ git = "https://github.com/rustdesk-org/tao".* \}', 'tao = { version = "0.16", default-features = false }'
-          $cargo = $cargo -replace 'tray-icon = \{ git = "https://github.com/rustdesk-org/tray-icon".* \}', 'tray-icon = "0.8"'
-          $cargo = $cargo -replace 'keepawake-rs = \{ git = "https://github.com/rustdesk-org/keepawake-rs".* \}', 'keepawake = "0.1"'
-          $cargo = $cargo -replace 'hbb_common = \{ git = "https://github.com/rustdesk/hbb_common".* \}', 'hbb_common = { path = "libs/hbb_common" }'
+          for ($i = 0; $i -lt $cargo.Count; $i++) {
+            # tao + tray-icon auskommentieren -> kein gdk-sys Konflikt mehr
+            if ($cargo[$i] -match '^\s*tao\s*=') {
+              $cargo[$i] = '# ' + $cargo[$i]
+            }
+            if ($cargo[$i] -match '^\s*tray-icon\s*=') {
+              $cargo[$i] = '# ' + $cargo[$i]
+            }
+            
+            # Andere tote Deps
+            if ($cargo[$i] -match 'reqwest\s*=\s*\{ git') {
+              $cargo[$i] = 'reqwest = { version = "0.11", default-features = false, features = ["blocking", "json", "rustls-tls"] }'
+            }
+            if ($cargo[$i] -match 'keepawake-rs\s*=\s*\{ git') {
+              $cargo[$i] = 'keepawake = "0.1"'
+            }
+            if ($cargo[$i] -match 'hbb_common\s*=\s*\{ git') {
+              $cargo[$i] = 'hbb_common = { path = "libs/hbb_common" }'
+            }
+          }
           
-          # magnum-opus mit [patch] überschreiben - killt linux-pkg-config Feature
+          # Patch-Section: RICHTIGE URL für magnum-opus
           $patch = @"
 
-          [patch.crates-io]
+          [patch."https://github.com/rustdesk/magnum-opus"]
           magnum-opus = { git = "https://github.com/rustdesk-org/magnum-opus", rev = "79be072c" }
           "@
           
+          $cargo = $cargo -join "`n"
           $cargo += $patch
           Set-Content "Cargo.toml" $cargo
           
-          Write-Host "=== Check Patch Section ==="
-          Select-String -Path "Cargo.toml" -Pattern "\[patch.crates-io\]" -Context 0,3
+          Write-Host "=== Check ==="
+          Select-String -Path "Cargo.toml" -Pattern "^#.*tao|^#.*tray-icon|\[patch" | Select-Object Line
 
       - name: Patch2
         shell: pwsh
