@@ -50,6 +50,25 @@ jobs:
           Add-Content -Path $env:GITHUB_ENV -Value "LIBCLANG_PATH=C:\Program Files\LLVM\bin"
           Add-Content -Path $env:GITHUB_ENV -Value "RUSTFLAGS=-Aunused-variables -Adead-code -Aunused-imports"
 
+      - name: Fix all broken Cargo.toml dependencies
+        shell: pwsh
+        run: |
+          $file = "Cargo.toml"
+          $content = Get-Content $file -Raw
+          
+          # 1. reqwest: Toter Commit -> crates.io
+          $content = $content -replace 'reqwest = \{ git = "https://github.com/rustdesk-org/reqwest".* \}', 'reqwest = { version = "0.11", features = ["blocking", "json", "rustls-tls"] }'
+          
+          # 2. magnum-opus: Git -> crates.io  
+          $content = $content -replace 'magnum-opus = \{ git = "https://github.com/rustdesk/magnum-opus".* \}', 'magnum-opus = "0.3"'
+          
+          # 3. hbb_common: Git -> Path, falls das auch spinnt
+          $content = $content -replace 'hbb_common = \{ git = "https://github.com/rustdesk/hbb_common".* \}', 'hbb_common = { path = "libs/hbb_common" }'
+          
+          Set-Content $file $content
+          Write-Host "=== Fixed Dependencies ==="
+          Select-String -Path $file -Pattern "reqwest =|magnum-opus =|hbb_common =" | Select-Object Line
+
       - name: Patch build.py
         shell: pwsh
         run: |
@@ -65,7 +84,6 @@ jobs:
           }
           Set-Content $file $lines
           Write-Host "Patched build.py"
-          Select-String -Path $file -Pattern "def external_resources"
 
       - name: Patch common.rs
         shell: pwsh
@@ -81,7 +99,6 @@ jobs:
           }
           Set-Content $file $lines
           Write-Host "Patched common.rs"
-          Select-String -Path $file -Pattern "RENDEZVOUS_SERVERS"
 
       - name: Build
         shell: bash
@@ -89,6 +106,7 @@ jobs:
           export VCPKGRS_DYNAMIC=1
           export LIBCLANG_PATH="/c/Program Files/LLVM/bin"
           export RUSTFLAGS="-Aunused-variables -Adead-code -Aunused-imports"
+          cargo clean
           python3 build.py --flutter --hwcodec
 
       - name: Zip
