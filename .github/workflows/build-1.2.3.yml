@@ -19,7 +19,7 @@ jobs:
   build:
     runs-on: windows-latest
     timeout-minutes: 60
-    
+
     steps:
       - name: Checkout RustDesk 1.2.3
         uses: actions/checkout@v4
@@ -44,35 +44,31 @@ jobs:
         run: |
           choco install llvm nasm -y
           git clone https://github.com/microsoft/vcpkg
-          .\vcpkg\bootstrap-vcpkg.bat
-          .\vcpkg\vcpkg.exe install libvpx:x64-windows-static libyuv:x64-windows-static opus:x64-windows-static aom:x64-windows-static
+         .\vcpkg\bootstrap-vcpkg.bat
+         .\vcpkg\vcpkg.exe install libvpx:x64-windows-static libyuv:x64-windows-static opus:x64-windows-static aom:x64-windows-static
           Add-Content -Path $env:GITHUB_ENV -Value "VCPKG_ROOT=$env:GITHUB_WORKSPACE\vcpkg"
           Add-Content -Path $env:GITHUB_ENV -Value "LIBCLANG_PATH=C:\Program Files\LLVM\bin"
-          Add-Content -Path $env:GITHUB_ENV -Value "RUSTFLAGS=-Aunused-variables -Adead-code -Aunused-imports -Aunused-mut"
+          Add-Content -Path $env:GITHUB_ENV -Value "RUSTFLAGS=-Aunused-variables -Adead-code -Aunused-imports"
 
-      - name: Fix ALL broken Git dependencies in Cargo.toml
+      - name: Fix Cargo.toml - geprüfte Commits
         shell: pwsh
         run: |
           $file = "Cargo.toml"
           $content = Get-Content $file -Raw
-          
-          # Alle kaputten Git-Deps von 1.2.3 ersetzen
-          $replacements = @{
-            'reqwest = \{ git = "https://github.com/rustdesk-org/reqwest".* \}' = 'reqwest = { version = "0.11", default-features = false, features = ["blocking", "json", "rustls-tls"] }'
-            'magnum-opus = \{ git = "https://github.com/rustdesk/magnum-opus".* \}' = 'magnum-opus = "0.3"'
-            'tao = \{ git = "https://github.com/rustdesk-org/tao".* \}' = 'tao = { version = "0.16", default-features = false }'
-            'tray-icon = \{ git = "https://github.com/rustdesk-org/tray-icon".* \}' = 'tray-icon = "0.8"'
-            'keepawake-rs = \{ git = "https://github.com/rustdesk-org/keepawake-rs".* \}' = 'keepawake = "0.1"'
-            'hbb_common = \{ git = "https://github.com/rustdesk/hbb_common".* \}' = 'hbb_common = { path = "libs/hbb_common" }'
-          }
-          
-          foreach ($pattern in $replacements.Keys) {
-            $content = $content -replace $pattern, $replacements[$pattern]
-          }
-          
+
+          # 1. reqwest: Toter Commit -> crates.io. Funktioniert mit 1.2.3
+          $content = $content -replace 'reqwest = \{ git = "https://github.com/rustdesk-org/reqwest".* \}', 'reqwest = { version = "0.11", default-features = false, features = ["blocking", "json", "rustls-tls"] }'
+
+          # 2. magnum-opus: Braucht linux-pkg-config Feature. Nur im Git-Fork vorhanden.
+          # Commit 79be072c existiert laut rustdesk-org/magnum-opus【6777759194414223553†L356-L357】
+          $content = $content -replace 'magnum-opus = \{ git = "https://github.com/rustdesk/magnum-opus".* \}', 'magnum-opus = { git = "https://github.com/rustdesk-org/magnum-opus", rev = "79be072c" }'
+
+          # 3. hbb_common: Zur Sicherheit auf lokalen Pfad
+          $content = $content -replace 'hbb_common = \{ git = "https://github.com/rustdesk/hbb_common".* \}', 'hbb_common = { path = "libs/hbb_common" }'
+
           Set-Content $file $content
-          Write-Host "=== Fixed Dependencies ==="
-          Select-String -Path $file -Pattern "reqwest =|magnum-opus =|tao =|tray-icon =|keepawake =|hbb_common =" | Select-Object Line
+          Write-Host "=== Geprüfte Dependencies ==="
+          Select-String -Path $file -Pattern "reqwest =|magnum-opus =|hbb_common =" | Select-Object Line
 
       - name: Patch build.py
         shell: pwsh
@@ -81,10 +77,10 @@ jobs:
           $lines = Get-Content $file
           for ($i = 0; $i -lt $lines.Count; $i++) {
             if ($lines[$i] -match 'def # external_resources') {
-              $lines[$i] = '    def external_resources(flutter, args, res_dir):'
+              $lines[$i] = ' def external_resources(flutter, args, res_dir):'
             }
             if ($lines[$i] -match 'external_resources\(flutter, args, res_dir\)') {
-              $lines[$i] = '    # external_resources(flutter, args, res_dir)'
+              $lines[$i] = ' # external_resources(flutter, args, res_dir)'
             }
           }
           Set-Content $file $lines
@@ -108,7 +104,7 @@ jobs:
         run: |
           export VCPKGRS_DYNAMIC=1
           export LIBCLANG_PATH="/c/Program Files/LLVM/bin"
-          export RUSTFLAGS="-Aunused-variables -Adead-code -Aunused-imports -Aunused-mut"
+          export RUSTFLAGS="-Aunused-variables -Adead-code -Aunused-imports"
           cargo clean
           python3 build.py --flutter --hwcodec
 
