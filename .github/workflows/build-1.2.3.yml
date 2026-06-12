@@ -48,26 +48,31 @@ jobs:
           .\vcpkg\vcpkg.exe install libvpx:x64-windows-static libyuv:x64-windows-static opus:x64-windows-static aom:x64-windows-static
           Add-Content -Path $env:GITHUB_ENV -Value "VCPKG_ROOT=$env:GITHUB_WORKSPACE\vcpkg"
           Add-Content -Path $env:GITHUB_ENV -Value "LIBCLANG_PATH=C:\Program Files\LLVM\bin"
-          Add-Content -Path $env:GITHUB_ENV -Value "RUSTFLAGS=-Aunused-variables -Adead-code -Aunused-imports"
+          Add-Content -Path $env:GITHUB_ENV -Value "RUSTFLAGS=-Aunused-variables -Adead-code -Aunused-imports -Aunused-mut"
 
-      - name: Fix all broken Cargo.toml dependencies
+      - name: Fix ALL broken Git dependencies in Cargo.toml
         shell: pwsh
         run: |
           $file = "Cargo.toml"
           $content = Get-Content $file -Raw
           
-          # 1. reqwest: Toter Commit -> crates.io
-          $content = $content -replace 'reqwest = \{ git = "https://github.com/rustdesk-org/reqwest".* \}', 'reqwest = { version = "0.11", features = ["blocking", "json", "rustls-tls"] }'
+          # Alle kaputten Git-Deps von 1.2.3 ersetzen
+          $replacements = @{
+            'reqwest = \{ git = "https://github.com/rustdesk-org/reqwest".* \}' = 'reqwest = { version = "0.11", default-features = false, features = ["blocking", "json", "rustls-tls"] }'
+            'magnum-opus = \{ git = "https://github.com/rustdesk/magnum-opus".* \}' = 'magnum-opus = "0.3"'
+            'tao = \{ git = "https://github.com/rustdesk-org/tao".* \}' = 'tao = { version = "0.16", default-features = false }'
+            'tray-icon = \{ git = "https://github.com/rustdesk-org/tray-icon".* \}' = 'tray-icon = "0.8"'
+            'keepawake-rs = \{ git = "https://github.com/rustdesk-org/keepawake-rs".* \}' = 'keepawake = "0.1"'
+            'hbb_common = \{ git = "https://github.com/rustdesk/hbb_common".* \}' = 'hbb_common = { path = "libs/hbb_common" }'
+          }
           
-          # 2. magnum-opus: Git -> crates.io  
-          $content = $content -replace 'magnum-opus = \{ git = "https://github.com/rustdesk/magnum-opus".* \}', 'magnum-opus = "0.3"'
-          
-          # 3. hbb_common: Git -> Path, falls das auch spinnt
-          $content = $content -replace 'hbb_common = \{ git = "https://github.com/rustdesk/hbb_common".* \}', 'hbb_common = { path = "libs/hbb_common" }'
+          foreach ($pattern in $replacements.Keys) {
+            $content = $content -replace $pattern, $replacements[$pattern]
+          }
           
           Set-Content $file $content
           Write-Host "=== Fixed Dependencies ==="
-          Select-String -Path $file -Pattern "reqwest =|magnum-opus =|hbb_common =" | Select-Object Line
+          Select-String -Path $file -Pattern "reqwest =|magnum-opus =|tao =|tray-icon =|keepawake =|hbb_common =" | Select-Object Line
 
       - name: Patch build.py
         shell: pwsh
@@ -83,7 +88,6 @@ jobs:
             }
           }
           Set-Content $file $lines
-          Write-Host "Patched build.py"
 
       - name: Patch common.rs
         shell: pwsh
@@ -98,14 +102,13 @@ jobs:
             $lines[$i] = $lines[$i] -replace 'pub const APP_NAME: &str = "RustDesk";', 'pub const APP_NAME: &str = "Support";'
           }
           Set-Content $file $lines
-          Write-Host "Patched common.rs"
 
       - name: Build
         shell: bash
         run: |
           export VCPKGRS_DYNAMIC=1
           export LIBCLANG_PATH="/c/Program Files/LLVM/bin"
-          export RUSTFLAGS="-Aunused-variables -Adead-code -Aunused-imports"
+          export RUSTFLAGS="-Aunused-variables -Adead-code -Aunused-imports -Aunused-mut"
           cargo clean
           python3 build.py --flutter --hwcodec
 
