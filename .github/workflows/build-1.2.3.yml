@@ -19,7 +19,7 @@ jobs:
   build:
     runs-on: windows-latest
     timeout-minutes: 60
-    
+
     steps:
       - name: Checkout RustDesk 1.2.3
         uses: actions/checkout@v4
@@ -28,8 +28,10 @@ jobs:
           ref: 1.2.3
           submodules: recursive
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust 1.70.0
+        uses: dtolnay/rust-toolchain@1.70.0
+        with:
+          targets: x86_64-pc-windows-msvc
 
       - name: Install Flutter 3.16.9
         uses: subosito/flutter-action@v2
@@ -42,25 +44,20 @@ jobs:
         run: |
           choco install llvm nasm -y
           git clone https://github.com/microsoft/vcpkg
-          .\vcpkg\bootstrap-vcpkg.bat
-          .\vcpkg\vcpkg.exe install libvpx:x64-windows-static libyuv:x64-windows-static opus:x64-windows-static aom:x64-windows-static
+         .\vcpkg\bootstrap-vcpkg.bat
+         .\vcpkg\vcpkg.exe install libvpx:x64-windows-static libyuv:x64-windows-static opus:x64-windows-static aom:x64-windows-static
           echo "VCPKG_ROOT=$env:GITHUB_WORKSPACE\vcpkg" >> $env:GITHUB_ENV
           echo "LIBCLANG_PATH=C:\Program Files\LLVM\bin" >> $env:GITHUB_ENV
+          echo "RUSTFLAGS=-Aunused-variables -Adead-code -Aunused-imports" >> $env:GITHUB_ENV
 
       - name: Patch build.py
         shell: pwsh
         run: |
           $file = "build.py"
           $lines = Get-Content $file
-          
-          # Fix Syntax-Fehler: def # external_resources -> def external_resources
-          $lines = $lines -replace '^\s*def # external_resources', '    def external_resources'
-          
-          # Deaktiviere external_resources Aufruf
-          $lines = $lines -replace '^\s*external_resources\(flutter, args, res_dir\)', '    # external_resources(flutter, args, res_dir)'
-          
+          $lines = $lines -replace '^\s*def # external_resources', ' def external_resources'
+          $lines = $lines -replace '^\s*external_resources\(flutter, args, res_dir\)', ' # external_resources(flutter, args, res_dir)'
           Set-Content $file $lines
-          
           Write-Host "=== Patched build.py ==="
           Select-String -Path $file -Pattern "def external_resources|external_resources\(" | Select-Object LineNumber,Line
 
@@ -70,13 +67,13 @@ jobs:
           $file = "src/common.rs"
           $server = "${{ github.event.inputs.server }}:${{ github.event.inputs.port }}"
           $key = "${{ github.event.inputs.key }}"
-          
+
           $content = Get-Content $file
           $content = $content -replace 'pub const RENDEZVOUS_SERVERS: &\[&str\] = &\[.*\];', "pub const RENDEZVOUS_SERVERS: &[&str] = &[`"$server`"];"
           $content = $content -replace 'pub const RS_PUB_KEY: &str = ".*";', "pub const RS_PUB_KEY: &str = `"$key`";"
           $content = $content -replace 'pub const APP_NAME: &str = "RustDesk";', 'pub const APP_NAME: &str = "Support";'
           Set-Content $file $content
-          
+
           Write-Host "=== Verifying Patch ==="
           Select-String -Path $file -Pattern "RENDEZVOUS_SERVERS|RS_PUB_KEY|APP_NAME"
 
@@ -85,6 +82,7 @@ jobs:
         run: |
           export VCPKGRS_DYNAMIC=1
           export LIBCLANG_PATH="/c/Program Files/LLVM/bin"
+          export RUSTFLAGS="-Aunused-variables -Adead-code -Aunused-imports"
           python3 build.py --flutter --hwcodec
 
       - name: Create ZIP
