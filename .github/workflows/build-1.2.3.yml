@@ -52,38 +52,27 @@ jobs:
       - name: Patch1
         shell: pwsh
         run: |
-          $cargo = Get-Content "Cargo.toml"
+          $cargo = Get-Content "Cargo.toml" -Raw
           
-          # Tote Git-Deps + tao/tray-icon komplett entfernen
-          for ($i = 0; $i -lt $cargo.Count; $i++) {
-            if ($cargo[$i] -match 'reqwest\s*=\s*\{ git') {
-              $cargo[$i] = 'reqwest = { version = "0.11", default-features = false, features = ["blocking", "json", "rustls-tls"] }'
-            }
-            if ($cargo[$i] -match 'keepawake-rs\s*=\s*\{ git') {
-              $cargo[$i] = 'keepawake = "0.1"'
-            }
-            if ($cargo[$i] -match 'hbb_common\s*=\s*\{ git') {
-              $cargo[$i] = 'hbb_common = { path = "libs/hbb_common" }'
-            }
-            # tao und tray-icon auskommentieren - Windows braucht die nicht
-            if ($cargo[$i] -match '^\s*tao\s*=') {
-              $cargo[$i] = '# ' + $cargo[$i]
-            }
-            if ($cargo[$i] -match '^\s*tray-icon\s*=') {
-              $cargo[$i] = '# ' + $cargo[$i]
-            }
-          }
+          # Normale tote Deps ersetzen
+          $cargo = $cargo -replace 'reqwest = \{ git = "https://github.com/rustdesk-org/reqwest".* \}', 'reqwest = { version = "0.11", default-features = false, features = ["blocking", "json", "rustls-tls"] }'
+          $cargo = $cargo -replace 'tao = \{ git = "https://github.com/rustdesk-org/tao".* \}', 'tao = { version = "0.16", default-features = false }'
+          $cargo = $cargo -replace 'tray-icon = \{ git = "https://github.com/rustdesk-org/tray-icon".* \}', 'tray-icon = "0.8"'
+          $cargo = $cargo -replace 'keepawake-rs = \{ git = "https://github.com/rustdesk-org/keepawake-rs".* \}', 'keepawake = "0.1"'
+          $cargo = $cargo -replace 'hbb_common = \{ git = "https://github.com/rustdesk/hbb_common".* \}', 'hbb_common = { path = "libs/hbb_common" }'
           
-          # magnum-opus patch
-          $cargo += @"
+          # magnum-opus mit [patch] überschreiben - killt linux-pkg-config Feature
+          $patch = @"
 
           [patch.crates-io]
           magnum-opus = { git = "https://github.com/rustdesk-org/magnum-opus", rev = "79be072c" }
           "@
           
+          $cargo += $patch
           Set-Content "Cargo.toml" $cargo
-          Write-Host "=== Check removed tao/tray-icon ==="
-          Select-String -Path "Cargo.toml" -Pattern "^#.*tao|^#.*tray-icon" | Select-Object Line
+          
+          Write-Host "=== Check Patch Section ==="
+          Select-String -Path "Cargo.toml" -Pattern "\[patch.crates-io\]" -Context 0,3
 
       - name: Patch2
         shell: pwsh
