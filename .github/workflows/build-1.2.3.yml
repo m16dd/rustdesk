@@ -52,29 +52,35 @@ jobs:
       - name: Patch1
         shell: pwsh
         run: |
-          $content = Get-Content "Cargo.toml" -Raw
-
-          # 1. reqwest: Commit tot -> crates.io
-          $content = $content -replace 'reqwest = \{ git = "https://github.com/rustdesk-org/reqwest".* \}', 'reqwest = { version = "0.11", default-features = false, features = ["blocking", "json", "rustls-tls"] }'
-
-          # 2. magnum-opus: Git-Fork nehmen, ABER Feature linux-pkg-config entfernen
-          $content = $content -replace 'magnum-opus = \{ git = "https://github.com/rustdesk/magnum-opus".* \}', 'magnum-opus = { git = "https://github.com/rustdesk-org/magnum-opus", rev = "79be072c", default-features = false }'
-
-          # 3. tao: Commit tot -> crates.io 0.16
-          $content = $content -replace 'tao = \{ git = "https://github.com/rustdesk-org/tao".* \}', 'tao = { version = "0.16", default-features = false }'
-
-          # 4. tray-icon: Commit tot -> crates.io
-          $content = $content -replace 'tray-icon = \{ git = "https://github.com/rustdesk-org/tray-icon".* \}', 'tray-icon = "0.8"'
-
-          # 5. keepawake-rs: Commit tot -> crates.io keepawake
-          $content = $content -replace 'keepawake-rs = \{ git = "https://github.com/rustdesk-org/keepawake-rs".* \}', 'keepawake = "0.1"'
-
-          # 6. hbb_common: Lokal
-          $content = $content -replace 'hbb_common = \{ git = "https://github.com/rustdesk/hbb_common".* \}', 'hbb_common = { path = "libs/hbb_common" }'
-
-          Set-Content "Cargo.toml" $content
-          Write-Host "=== Patched Cargo.toml ==="
-          Select-String -Path "Cargo.toml" -Pattern "magnum-opus" | Select-Object Line
+          $file = "Cargo.toml"
+          $content = Get-Content $file
+          
+          # Wir gehen jede Zeile durch und ersetzen magnum-opus komplett
+          for ($i = 0; $i -lt $content.Count; $i++) {
+            if ($content[$i] -match 'magnum-opus\s*=\s*\{') {
+              $content[$i] = 'magnum-opus = { git = "https://github.com/rustdesk-org/magnum-opus", rev = "79be072c", default-features = false }'
+            }
+            # Alle anderen toten Deps
+            if ($content[$i] -match 'reqwest\s*=\s*\{ git') {
+              $content[$i] = 'reqwest = { version = "0.11", default-features = false, features = ["blocking", "json", "rustls-tls"] }'
+            }
+            if ($content[$i] -match 'tao\s*=\s*\{ git') {
+              $content[$i] = 'tao = { version = "0.16", default-features = false }'
+            }
+            if ($content[$i] -match 'tray-icon\s*=\s*\{ git') {
+              $content[$i] = 'tray-icon = "0.8"'
+            }
+            if ($content[$i] -match 'keepawake-rs\s*=\s*\{ git') {
+              $content[$i] = 'keepawake = "0.1"'
+            }
+            if ($content[$i] -match 'hbb_common\s*=\s*\{ git') {
+              $content[$i] = 'hbb_common = { path = "libs/hbb_common" }'
+            }
+          }
+          
+          Set-Content $file $content
+          Write-Host "=== Check magnum-opus ==="
+          Select-String -Path $file -Pattern "magnum-opus" | Select-Object Line
 
       - name: Patch2
         shell: pwsh
