@@ -52,46 +52,32 @@ jobs:
       - name: Patch1
         shell: pwsh
         run: |
-          # 1. Cargo.lock löschen - sonst nimmt er die alte magnum-opus Version
-          Remove-Item Cargo.lock -ErrorAction SilentlyContinue
+          # 1. Alle Cargo.lock löschen
+          Get-ChildItem -Recurse -Filter "Cargo.lock" | Remove-Item -Force
           
-          $cargo = Get-Content "Cargo.toml"
-          $newcargo = @()
-          
-          foreach ($line in $cargo) {
-            # tao + tray-icon komplett raus -> killt gdk-sys
-            if ($line -match '^\s*tao\s*=') { continue }
-            if ($line -match '^\s*tray-icon\s*=') { continue }
+          # 2. Alle Cargo.toml patchen
+          Get-ChildItem -Recurse -Filter "Cargo.toml" | ForEach-Object {
+            $file = $_.FullName
+            $content = Get-Content $file -Raw
             
-            # magnum-opus Zeile komplett ersetzen, Features weg
-            if ($line -match '^\s*magnum-opus\s*=') {
-              $newcargo += 'magnum-opus = { git = "https://github.com/rustdesk-org/magnum-opus", rev = "79be072c" }'
-              continue
-            }
+            # tao + tray-icon komplett raus
+            $content = $content -replace '(?m)^\s*tao\s*=.*$\n?', ''
+            $content = $content -replace '(?m)^\s*tray-icon\s*=.*$\n?', ''
+            
+            # magnum-opus: ALLE Features weg + auf crates.io Version setzen
+            $content = $content -replace 'magnum-opus\s*=\s*\{[^}]*\}', 'magnum-opus = { version = "0.4", default-features = false }'
             
             # Andere tote Deps
-            if ($line -match 'reqwest\s*=\s*\{ git') {
-              $newcargo += 'reqwest = { version = "0.11", default-features = false, features = ["blocking", "json", "rustls-tls"] }'
-              continue
-            }
-            if ($line -match 'keepawake-rs\s*=\s*\{ git') {
-              $newcargo += 'keepawake = "0.1"'
-              continue
-            }
-            if ($line -match 'hbb_common\s*=\s*\{ git') {
-              $newcargo += 'hbb_common = { path = "libs/hbb_common" }'
-              continue
-            }
+            $content = $content -replace 'reqwest\s*=\s*\{ git[^}]*\}', 'reqwest = { version = "0.11", default-features = false, features = ["blocking", "json", "rustls-tls"] }'
+            $content = $content -replace 'keepawake-rs\s*=\s*\{ git[^}]*\}', 'keepawake = "0.1"'
+            $content = $content -replace 'hbb_common\s*=\s*\{ git[^}]*\}', 'hbb_common = { path = "libs/hbb_common" }'
             
-            $newcargo += $line
+            Set-Content $file $content
+            Write-Host "Patched: $file"
           }
           
-          Set-Content "Cargo.toml" $newcargo
-          
-          Write-Host "=== Check magnum-opus ==="
-          Select-String -Path "Cargo.toml" -Pattern "magnum-opus" | Select-Object Line
-          Write-Host "=== Check tao/tray-icon weg ==="
-          if (Select-String -Path "Cargo.toml" -Pattern "^\s*tao\s*=") { Write-Host "TAO NOCH DA" } else { Write-Host "TAO WEG" }
+          Write-Host "=== Check magnum-opus überall ==="
+          Select-String -Path (Get-ChildItem -Recurse -Filter "Cargo.toml") -Pattern "magnum-opus" | Select-Object Path,Line
 
       - name: Patch2
         shell: pwsh
@@ -126,8 +112,7 @@ jobs:
           export VCPKGRS_DYNAMIC=1
           export LIBCLANG_PATH="/c/Program Files/LLVM/bin"
           export RUSTFLAGS="-Aunused-variables -Adead-code -Aunused-imports"
-          cargo clean
-          cargo update -p magnum-opus
+          cargo generate-lockfile
           python3 build.py --flutter --hwcodec
 
       - name: Zip
